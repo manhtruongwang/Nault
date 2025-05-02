@@ -7,7 +7,7 @@ on:
 jobs:
   # Release draft and share app version via package.json
   pre_build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     outputs:
       output1: ${{ steps.release_drafter.outputs.upload_url }}
       output2: ${{ steps.package-version.outputs.current-version }}
@@ -68,7 +68,7 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 16
-          cache: 'npm'
+          cache: "npm"
 
       - name: Install APT dependencies
         if: matrix.os == 'ubuntu-20.04'
@@ -96,7 +96,7 @@ jobs:
           openssl sha256 desktop-app/build/*.${{ matrix.app_ext }}     | tee -a desktop-app/build/${{ matrix.artifact_name }} 
           openssl sha512 desktop-app/build/*.${{ matrix.app_ext }}     | tee -a desktop-app/build/${{ matrix.artifact_name }} 
           openssl sha3-512 desktop-app/build/*.${{ matrix.app_ext }}   | tee -a desktop-app/build/${{ matrix.artifact_name }} 
-          openssl blake2b512 desktop-app/build/*.${{ matrix.app_ext }} | tee -a desktop-app/build/${{ matrix.artifact_name }} 
+          openssl blake2b512 desktop-app/build/*.${{ matrix.app_ext }} | tee -a desktop-app/build/${{ matrix.artifact_name }}
         shell: bash
 
       - name: Rename file paths in .yml (Linux)
