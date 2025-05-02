@@ -40,13 +40,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             artifact_name: checksums
             asset_name: checksums
             app_ext: AppImage
             app_os: linux
             experimental: false
-          - os: macos-11
+          - os: macos-14
             artifact_name: checksums
             asset_name: checksums
             app_ext: dmg
@@ -100,14 +100,14 @@ jobs:
         shell: bash
 
       - name: Rename file paths in .yml (Linux)
-        if: matrix.os == 'ubuntu-20.04' && startsWith(github.ref, 'refs/tags/')
+        if: matrix.os == 'ubuntu-22.04' && startsWith(github.ref, 'refs/tags/')
         run: |
           sed -i '/.AppImage/ s//-Linux.AppImage/g' desktop-app/build/latest-linux.yml | bash
         shell: bash
 
       # Special sed command for mac
       - name: Rename file paths in .yml (Mac)
-        if: matrix.os == 'macos-11' && startsWith(github.ref, 'refs/tags/')
+        if: matrix.os == 'macos-14' && startsWith(github.ref, 'refs/tags/')
         run: |
           sed -i '' '/.dmg/ s//-Mac.dmg/g' desktop-app/build/latest-mac.yml
         shell: bash
@@ -131,7 +131,7 @@ jobs:
           asset_content_type: application/octet-stream
 
       - name: Upload Binaries Mac
-        if: matrix.os == 'macos-11' && startsWith(github.ref, 'refs/tags/')
+        if: matrix.os == 'macos-14' && startsWith(github.ref, 'refs/tags/')
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -175,7 +175,7 @@ jobs:
           asset_content_type: application/octet-stream
 
       - name: Upload yml Mac
-        if: matrix.os == 'macos-11' && startsWith(github.ref, 'refs/tags/')
+        if: matrix.os == 'macos-14' && startsWith(github.ref, 'refs/tags/')
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
