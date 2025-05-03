@@ -1,35 +1,34 @@
-import { Injectable } from '@angular/core';
-import Nano from 'hw-app-nano';
-import TransportU2F from '@ledgerhq/hw-transport-u2f';
-import TransportUSB from '@ledgerhq/hw-transport-webusb';
-import TransportHID from '@ledgerhq/hw-transport-webhid';
-import TransportBLE from '@ledgerhq/hw-transport-web-ble';
-import Transport from '@ledgerhq/hw-transport';
-import {Subject} from 'rxjs';
-import {ApiService} from './api.service';
-import {NotificationService} from './notification.service';
-import { environment } from '../../environments/environment';
-import {DesktopService} from './desktop.service';
-import { AppSettingsService } from './app-settings.service';
+import { Injectable } from "@angular/core";
+import Transport from "@ledgerhq/hw-transport";
+import TransportU2F from "@ledgerhq/hw-transport-u2f";
+import TransportBLE from "@ledgerhq/hw-transport-web-ble";
+import TransportHID from "@ledgerhq/hw-transport-webhid";
+import TransportUSB from "@ledgerhq/hw-transport-webusb";
+import Nano from "hw-app-nano";
+import { Subject } from "rxjs";
+import { environment } from "../../environments/environment";
+import { ApiService } from "./api.service";
+import { AppSettingsService } from "./app-settings.service";
+import { DesktopService } from "./desktop.service";
+import { NotificationService } from "./notification.service";
 
 export const STATUS_CODES = {
   SECURITY_STATUS_NOT_SATISFIED: 0x6982,
   CONDITIONS_OF_USE_NOT_SATISFIED: 0x6985,
   INVALID_SIGNATURE: 0x6a81,
-  CACHE_MISS: 0x6a82
+  CACHE_MISS: 0x6a82,
 };
 
 export const LedgerStatus = {
-  NOT_CONNECTED: 'not-connected',
-  LOCKED: 'locked',
-  READY: 'ready',
+  NOT_CONNECTED: "not-connected",
+  LOCKED: "locked",
+  READY: "ready",
 };
-
 
 export interface LedgerData {
   status: string;
-  nano: any|null;
-  transport: Transport|null;
+  nano: any | null;
+  transport: Transport | null;
 }
 
 export interface LedgerLog {
@@ -40,15 +39,16 @@ export interface LedgerLog {
   date: Date;
 }
 
-const zeroBlock = '0000000000000000000000000000000000000000000000000000000000000000';
+const zeroBlock =
+  "0000000000000000000000000000000000000000000000000000000000000000";
 
 @Injectable()
 export class LedgerService {
   walletPrefix = `44'/165'/`;
 
-  waitTimeout = 30000;
-  pollInterval = 5000;
-  u2fPollInterval = 30000;
+  waitTimeout = 300000;
+  normalTimeout = 5000;
+  pollInterval = 15000;
 
   pollingLedger = false;
 
@@ -68,21 +68,23 @@ export class LedgerService {
   supportsBluetooth = false;
   supportsUSB = false;
 
-  transportMode: 'U2F' | 'USB' | 'HID' | 'Bluetooth' = 'U2F';
-  DynamicTransport: typeof TransportUSB | typeof TransportHID | typeof TransportBLE = TransportU2F;
+  transportMode: "U2F" | "USB" | "HID" | "Bluetooth" = "U2F";
+  DynamicTransport = TransportU2F;
 
-  ledgerStatus$: Subject<{ status: string, statusText: string }> = new Subject();
+  ledgerStatus$: Subject<any> = new Subject();
   desktopMessage$ = new Subject();
 
-  constructor(private api: ApiService,
-              private desktop: DesktopService,
-              private notifications: NotificationService,
-              private appSettings: AppSettingsService) {
+  constructor(
+    private api: ApiService,
+    private desktop: DesktopService,
+    private notifications: NotificationService,
+    private appSettings: AppSettingsService
+  ) {
     if (this.isDesktop) {
       this.configureDesktop();
     } else {
       this.checkBrowserSupport().then(() => {
-        if (appSettings.getAppSetting('ledgerReconnect') === 'bluetooth') {
+        if (appSettings.getAppSetting("ledgerReconnect") === "bluetooth") {
           this.enableBluetoothMode(true);
         }
       });
@@ -101,23 +103,25 @@ export class LedgerService {
    */
   configureDesktop() {
     this.desktop.connect();
-    this.desktop.on('ledger', (event, message) => {
+    this.desktop.on("ledger", (event, message) => {
       if (!message || !message.event) return;
       switch (message.event) {
-        case 'ledger-status':
+        case "ledger-status":
           this.ledger.status = message.data.status;
-          this.ledgerStatus$.next({ status: message.data.status, statusText: message.data.statusText });
+          this.ledgerStatus$.next({
+            status: message.data.status,
+            statusText: message.data.statusText,
+          });
           break;
 
-        case 'account-details':
-        case 'cache-block':
-        case 'sign-block':
+        case "account-details":
+        case "cache-block":
+        case "sign-block":
           this.desktopMessage$.next(message);
           break;
       }
     });
     this.supportsUSB = true;
-    this.supportsBluetooth = true;
   }
 
   /**
@@ -125,29 +129,44 @@ export class LedgerService {
    */
   async checkBrowserSupport() {
     await Promise.all([
-      TransportU2F.isSupported().then(supported => this.supportsU2F = supported),
-      TransportHID.isSupported().then(supported => this.supportsWebHID = supported),
-      TransportUSB.isSupported().then(supported => this.supportsWebUSB = supported),
-      TransportBLE.isSupported().then(supported => this.supportsBluetooth = supported),
+      TransportU2F.isSupported().then(
+        (supported) => (this.supportsU2F = supported)
+      ),
+      TransportHID.isSupported().then(
+        (supported) => (this.supportsWebHID = supported)
+      ),
+      TransportUSB.isSupported().then(
+        (supported) => (this.supportsWebUSB = supported)
+      ),
+      TransportBLE.isSupported().then(
+        (supported) => (this.supportsBluetooth = supported)
+      ),
     ]);
-    this.supportsUSB = this.supportsU2F || this.supportsWebHID || this.supportsWebUSB;
+    this.supportsUSB =
+      this.supportsU2F || this.supportsWebHID || this.supportsWebUSB;
   }
 
   /**
    * Detect the optimal USB transport protocol for the current browser and OS
    */
   detectUsbTransport() {
-    if (this.supportsWebUSB) {
-      // Prefer WebUSB
-      this.transportMode = 'USB';
+    const isWindows = window.navigator.platform.includes("Win");
+
+    if (isWindows && this.supportsWebHID) {
+      // Prefer WebHID on Windows due to stability issues with WebUSB
+      this.transportMode = "HID";
+      this.DynamicTransport = TransportHID;
+    } else if (this.supportsWebUSB) {
+      // Else prefer WebUSB
+      this.transportMode = "USB";
       this.DynamicTransport = TransportUSB;
     } else if (this.supportsWebHID) {
       // Fallback to WebHID
-      this.transportMode = 'HID';
+      this.transportMode = "HID";
       this.DynamicTransport = TransportHID;
     } else {
       // Legacy browsers
-      this.transportMode = 'U2F';
+      this.transportMode = "U2F";
       this.DynamicTransport = TransportU2F;
     }
   }
@@ -158,7 +177,7 @@ export class LedgerService {
    */
   enableBluetoothMode(enabled: boolean) {
     if (this.supportsBluetooth && enabled) {
-      this.transportMode = 'Bluetooth';
+      this.transportMode = "Bluetooth";
       this.DynamicTransport = TransportBLE;
     } else {
       this.detectUsbTransport();
@@ -173,8 +192,8 @@ export class LedgerService {
    */
   async getDesktopResponse(eventType, filterFn?) {
     return new Promise((resolve, reject) => {
-      const sub = this.desktopMessage$
-        .subscribe((response: any) => {
+      const sub = this.desktopMessage$.subscribe(
+        (response: any) => {
           // Listen to all desktop messages until one passes our filters
           if (response.event !== eventType) {
             return; // Not the event we want.
@@ -192,15 +211,14 @@ export class LedgerService {
           }
 
           resolve(response.data);
-        }, err => {
+        },
+        (err) => {
           console.log(`Desktop message got error!`, err);
           reject(err);
-        });
+        }
+      );
     });
-
   }
-
-
 
   async getLedgerAccountDesktop(accountIndex, showOnScreen) {
     if (this.queryingDesktopLedger) {
@@ -208,10 +226,16 @@ export class LedgerService {
     }
     this.queryingDesktopLedger = true;
 
-    this.desktop.send('ledger', { event: 'account-details', data: { accountIndex, showOnScreen } });
+    this.desktop.send("ledger", {
+      event: "account-details",
+      data: { accountIndex, showOnScreen },
+    });
 
     try {
-      const details = await this.getDesktopResponse('account-details', a => a.accountIndex === accountIndex);
+      const details = await this.getDesktopResponse(
+        "account-details",
+        (a) => a.accountIndex === accountIndex
+      );
       this.queryingDesktopLedger = false;
 
       return details;
@@ -227,10 +251,16 @@ export class LedgerService {
     }
     this.queryingDesktopLedger = true;
 
-    this.desktop.send('ledger', { event: 'cache-block', data: { accountIndex, cacheData, signature } });
+    this.desktop.send("ledger", {
+      event: "cache-block",
+      data: { accountIndex, cacheData, signature },
+    });
 
     try {
-      const details = await this.getDesktopResponse('cache-block', a => a.accountIndex === accountIndex);
+      const details = await this.getDesktopResponse(
+        "cache-block",
+        (a) => a.accountIndex === accountIndex
+      );
       this.queryingDesktopLedger = false;
 
       return details;
@@ -246,10 +276,16 @@ export class LedgerService {
     }
     this.queryingDesktopLedger = true;
 
-    this.desktop.send('ledger', { event: 'sign-block', data: { accountIndex, blockData } });
+    this.desktop.send("ledger", {
+      event: "sign-block",
+      data: { accountIndex, blockData },
+    });
 
     try {
-      const details = await this.getDesktopResponse('sign-block', a => a.accountIndex === accountIndex);
+      const details = await this.getDesktopResponse(
+        "sign-block",
+        (a) => a.accountIndex === accountIndex
+      );
       this.queryingDesktopLedger = false;
 
       return details;
@@ -261,17 +297,18 @@ export class LedgerService {
 
   async loadTransport() {
     return new Promise((resolve, reject) => {
-      this.DynamicTransport.create(3000, this.waitTimeout).then(trans => {
+      this.DynamicTransport.create()
+        .then((trans) => {
+          // LedgerLogs.listen((log: LedgerLog) => console.log(`Ledger: ${log.type}: ${log.message}`));
+          this.ledger.transport = trans;
+          this.ledger.transport.setExchangeTimeout(this.waitTimeout); // 5 minutes
+          this.ledger.nano = new Nano(this.ledger.transport);
 
-        // LedgerLogs.listen((log: LedgerLog) => console.log(`Ledger: ${log.type}: ${log.message}`));
-        this.ledger.transport = trans;
-        this.ledger.nano = new Nano(this.ledger.transport);
-
-        resolve(this.ledger.transport);
-      }).catch(reject);
+          resolve(this.ledger.transport);
+        })
+        .catch(reject);
     });
   }
-
 
   /**
    * Main ledger loading function.  Can be called multiple times to attempt a reconnect.
@@ -280,22 +317,27 @@ export class LedgerService {
    */
   async loadLedger(hideNotifications = false) {
     return new Promise(async (resolve, reject) => {
-
       // Desktop is handled completely differently.  Send a message for status instead of setting anything up
       if (this.isDesktop) {
-        if (!this.desktop.send('ledger', { event: 'get-ledger-status', data: { bluetooth: this.transportMode === 'Bluetooth' } })) {
+        if (
+          !this.desktop.send("ledger", {
+            event: "get-ledger-status",
+            data: { bluetooth: this.transportMode === "Bluetooth" },
+          })
+        ) {
           reject(new Error(`Electron\'s IPC was not loaded`));
         }
 
         // Any response will be handled by the configureDesktop() function, which pipes responses into this observable
-        const sub = this.ledgerStatus$.subscribe(newStatus => {
+        const sub = this.ledgerStatus$.subscribe((newStatus) => {
           if (newStatus.status === LedgerStatus.READY) {
             resolve(true);
-          } else if (newStatus.statusText.includes('No compatible USB Bluetooth 4.0 device found') || newStatus.statusText.includes('Could not start scanning')) {
-            this.supportsBluetooth = false;
-            reject(newStatus.statusText);
           } else {
-            reject(new Error(newStatus.statusText || `Unable to load desktop Ledger device`));
+            reject(
+              new Error(
+                newStatus.statusText || `Unable to load desktop Ledger device`
+              )
+            );
           }
           sub.unsubscribe();
         }, reject);
@@ -303,25 +345,24 @@ export class LedgerService {
       }
 
       if (!this.ledger.transport) {
-
         // If in USB mode, detect best transport option
-        if (this.transportMode !== 'Bluetooth') {
+        if (this.transportMode !== "Bluetooth") {
           this.detectUsbTransport();
-          this.appSettings.setAppSetting('ledgerReconnect', 'usb');
+          this.appSettings.setAppSetting("ledgerReconnect", "usb");
         } else {
-          this.appSettings.setAppSetting('ledgerReconnect', 'bluetooth');
+          this.appSettings.setAppSetting("ledgerReconnect", "bluetooth");
         }
 
         try {
           await this.loadTransport();
         } catch (err) {
-          if (err.name !== 'TransportOpenUserCancelled') {
+          if (err.name !== "TransportOpenUserCancelled") {
             console.log(`Error loading ${this.transportMode} transport `, err);
             this.ledger.status = LedgerStatus.NOT_CONNECTED;
-            this.ledgerStatus$.next({ status: this.ledger.status, statusText: `Unable to load Ledger transport: ${err.message || err}` });
-            if (!hideNotifications) {
-              this.notifications.sendWarning(`Ledger connection failed. Make sure your Ledger is unlocked.  Restart the nano app on your Ledger if the error persists`);
-            }
+            this.ledgerStatus$.next({
+              status: this.ledger.status,
+              statusText: `Unable to load Ledger transport: ${err.message || err}`,
+            });
           }
           this.resetLedger();
           resolve(false);
@@ -332,6 +373,9 @@ export class LedgerService {
         return resolve(false);
       }
 
+      if (this.ledger.status === LedgerStatus.READY) {
+        return resolve(true); // Already ready?
+      }
       let resolved = false;
 
       // Set up a timeout when things are not ready
@@ -339,9 +383,14 @@ export class LedgerService {
         if (resolved) return;
         console.log(`Timeout expired, sending not connected`);
         this.ledger.status = LedgerStatus.NOT_CONNECTED;
-        this.ledgerStatus$.next({ status: this.ledger.status, statusText: `Unable to detect Nano Ledger application (Timeout)` });
+        this.ledgerStatus$.next({
+          status: this.ledger.status,
+          statusText: `Unable to detect Nano Ledger application (Timeout)`,
+        });
         if (!hideNotifications) {
-          this.notifications.sendWarning(`Unable to connect to the Ledger device.  Make sure it is unlocked and the nano application is open`);
+          this.notifications.sendWarning(
+            `Unable to connect to the Ledger device.  Make sure it is unlocked and the nano application is open`
+          );
         }
         resolved = true;
         return resolve(false);
@@ -353,15 +402,22 @@ export class LedgerService {
         resolved = true;
 
         if (!ledgerConfig) return resolve(false);
+        if (ledgerConfig && ledgerConfig.version) {
+          this.ledger.status = LedgerStatus.LOCKED;
+          this.ledgerStatus$.next({
+            status: this.ledger.status,
+            statusText: `Nano app detected, but ledger is locked`,
+          });
+        }
       } catch (err) {
         console.log(`App config error: `, err);
-        this.ledger.status = LedgerStatus.NOT_CONNECTED;
-        this.ledgerStatus$.next({ status: this.ledger.status, statusText: `Unable to load Nano App configuration: ${err.message || err}` });
-        if (err.statusText === 'HALTED') {
+        if (err.statusText === "HALTED") {
           this.resetLedger();
         }
         if (!hideNotifications && !resolved) {
-          this.notifications.sendWarning(`Unable to connect to the Ledger device.  Make sure your Ledger is unlocked.  Restart the nano app on your Ledger if the error persists`);
+          this.notifications.sendWarning(
+            `Unable to connect to the Ledger device.  Make sure your Ledger is unlocked.  Restart the nano app on your Ledger if the error persists`
+          );
         }
         resolved = true;
         return resolve(false);
@@ -371,7 +427,10 @@ export class LedgerService {
       try {
         const accountDetails = await this.getLedgerAccount(0);
         this.ledger.status = LedgerStatus.READY;
-        this.ledgerStatus$.next({ status: this.ledger.status, statusText: `Nano Ledger application connected` });
+        this.ledgerStatus$.next({
+          status: this.ledger.status,
+          statusText: `Nano Ledger application connected`,
+        });
 
         if (!this.pollingLedger) {
           this.pollingLedger = true;
@@ -382,21 +441,25 @@ export class LedgerService {
         if (err.statusCode === STATUS_CODES.SECURITY_STATUS_NOT_SATISFIED) {
           this.ledger.status = LedgerStatus.LOCKED;
           if (!hideNotifications) {
-            this.notifications.sendWarning(`Ledger device locked.  Unlock and open the nano application`);
+            this.notifications.sendWarning(
+              `Ledger device locked.  Unlock and open the nano application`
+            );
           }
         }
       }
 
       resolve(true);
-    }).catch(err => {
+    }).catch((err) => {
       console.log(`error when loading ledger `, err);
       if (!hideNotifications) {
-        this.notifications.sendWarning(`Error loading Ledger device: ${typeof err === 'string' ? err : err.message}`, { length: 6000 });
+        this.notifications.sendWarning(
+          `Error loading Ledger device: ${typeof err === "string" ? err : err.message}`,
+          { length: 6000 }
+        );
       }
 
       return null;
     });
-
   }
 
   async updateCache(accountIndex, blockHash) {
@@ -411,14 +474,25 @@ export class LedgerService {
     const cacheData = {
       representative: blockData.contents.representative,
       balance: blockData.contents.balance,
-      previousBlock: blockData.contents.previous === zeroBlock ? null : blockData.contents.previous,
+      previousBlock:
+        blockData.contents.previous === zeroBlock
+          ? null
+          : blockData.contents.previous,
       sourceBlock: blockData.contents.link,
     };
 
     if (this.isDesktop) {
-      return await this.updateCacheDesktop(accountIndex, cacheData, blockData.contents.signature);
+      return await this.updateCacheDesktop(
+        accountIndex,
+        cacheData,
+        blockData.contents.signature
+      );
     } else {
-      return await this.ledger.nano.cacheBlock(this.ledgerPath(accountIndex), cacheData, blockData.contents.signature);
+      return await this.ledger.nano.cacheBlock(
+        this.ledgerPath(accountIndex),
+        cacheData,
+        blockData.contents.signature
+      );
     }
   }
 
@@ -430,14 +504,23 @@ export class LedgerService {
     const cacheData = {
       representative: blockData.representative,
       balance: blockData.balance,
-      previousBlock: blockData.previous === zeroBlock ? null : blockData.previous,
+      previousBlock:
+        blockData.previous === zeroBlock ? null : blockData.previous,
       sourceBlock: blockData.link,
     };
 
     if (this.isDesktop) {
-      return await this.updateCacheDesktop(accountIndex, cacheData, blockData.signature);
+      return await this.updateCacheDesktop(
+        accountIndex,
+        cacheData,
+        blockData.signature
+      );
     } else {
-      return await this.ledger.nano.cacheBlock(this.ledgerPath(accountIndex), cacheData, blockData.signature);
+      return await this.ledger.nano.cacheBlock(
+        this.ledgerPath(accountIndex),
+        cacheData,
+        blockData.signature
+      );
     }
   }
 
@@ -446,9 +529,13 @@ export class LedgerService {
       await this.loadLedger(); // Make sure ledger is ready
     }
     if (this.isDesktop) {
-      return await this.signBlockDesktop(accountIndex, blockData);
+      return this.signBlockDesktop(accountIndex, blockData);
     } else {
-      return await this.ledger.nano.signBlock(this.ledgerPath(accountIndex), blockData);
+      this.ledger.transport.setExchangeTimeout(this.waitTimeout);
+      return await this.ledger.nano.signBlock(
+        this.ledgerPath(accountIndex),
+        blockData
+      );
     }
   }
 
@@ -457,8 +544,14 @@ export class LedgerService {
   }
 
   async getLedgerAccountWeb(accountIndex: number, showOnScreen = false) {
+    this.ledger.transport.setExchangeTimeout(
+      showOnScreen ? this.waitTimeout : this.normalTimeout
+    );
     try {
-      return await this.ledger.nano.getAddress(this.ledgerPath(accountIndex), showOnScreen);
+      return await this.ledger.nano.getAddress(
+        this.ledgerPath(accountIndex),
+        showOnScreen
+      );
     } catch (err) {
       throw err;
     }
@@ -475,10 +568,9 @@ export class LedgerService {
   pollLedgerStatus() {
     if (!this.pollingLedger) return;
     setTimeout(async () => {
-      if (!this.pollingLedger) return;
       await this.checkLedgerStatus();
       this.pollLedgerStatus();
-    }, this.transportMode === 'U2F' ? this.u2fPollInterval : this.pollInterval);
+    }, this.pollInterval);
   }
 
   async checkLedgerStatus() {
@@ -491,13 +583,9 @@ export class LedgerService {
       this.ledger.status = LedgerStatus.READY;
     } catch (err) {
       // Ignore race condition error, which means an action is pending on the ledger (such as block confirmation)
-      if (err.name !== 'TransportRaceCondition') {
-        console.log('Check ledger status failed ', JSON.stringify(err));
-        if (err.statusCode === STATUS_CODES.SECURITY_STATUS_NOT_SATISFIED) {
-          this.ledger.status = LedgerStatus.LOCKED;
-        } else {
-          this.ledger.status = LedgerStatus.NOT_CONNECTED;
-        }
+      if (err.name !== "TransportRaceCondition") {
+        console.log("Check ledger status failed ", err);
+        this.ledger.status = LedgerStatus.NOT_CONNECTED;
         this.pollingLedger = false;
         this.resetLedger();
       }
@@ -505,7 +593,4 @@ export class LedgerService {
 
     this.ledgerStatus$.next({ status: this.ledger.status, statusText: `` });
   }
-
-
-
 }

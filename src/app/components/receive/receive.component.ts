@@ -357,18 +357,10 @@ export class ReceiveComponent implements OnInit, OnDestroy {
     }
     receivableBlock.loading = true;
 
-    let createdReceiveBlockHash = null;
-    let hasShownErrorNotification = false;
+    const createdReceiveBlockHash =
+      await this.nanoBlock.generateReceive(walletAccount, sourceBlock, this.walletService.isLedgerWallet());
 
-    try {
-      createdReceiveBlockHash =
-        await this.nanoBlock.generateReceive(walletAccount, sourceBlock, this.walletService.isLedgerWallet());
-    } catch (err) {
-      this.notificationService.sendError('Error receiving transaction: ' + err.message);
-      hasShownErrorNotification = true;
-    }
-
-    if (createdReceiveBlockHash != null) {
+    if (createdReceiveBlockHash) {
       receivableBlock.received = true;
       this.mobileTransactionMenuModal.hide();
       this.notificationService.removeNotification('success-receive');
@@ -377,10 +369,8 @@ export class ReceiveComponent implements OnInit, OnDestroy {
       // list also updated with reloadBalances but not if called too fast
       this.walletService.removePendingBlock(receivableBlock.hash);
     } else {
-      if (hasShownErrorNotification === false) {
-        if (!this.walletService.isLedgerWallet()) {
-          this.notificationService.sendError(`Error receiving transaction, please try again`, {length: 10000});
-        }
+      if (!this.walletService.isLedgerWallet()) {
+        this.notificationService.sendError(`There was a problem receiving the transaction, try manually!`, {length: 10000});
       }
     }
 

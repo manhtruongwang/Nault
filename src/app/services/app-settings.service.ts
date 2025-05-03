@@ -70,36 +70,28 @@ export class AppSettingsService {
       shouldRandom: false,
     },
     {
+      name: 'My Nano Ninja',
+      value: 'ninja',
+      api: 'https://mynano.ninja/api/node',
+      ws: 'wss://ws.mynano.ninja',
+      auth: null,
+      shouldRandom: true,
+    },
+    {
+      name: 'Nanos.cc',
+      value: 'nanos',
+      api: 'https://nault.nanos.cc/proxy',
+      ws: 'wss://nault-ws.nanos.cc',
+      auth: null,
+      shouldRandom: true,
+    },
+    {
       name: 'Rainstorm City',
       value: 'rainstorm',
       api: 'https://rainstorm.city/api',
       ws: 'wss://rainstorm.city/websocket',
       auth: null,
       shouldRandom: true,
-    },
-    {
-      name: 'NanOslo',
-      value: 'nanoslo',
-      api: 'https://nanoslo.0x.no/proxy',
-      ws: 'wss://nanoslo.0x.no/websocket',
-      auth: null,
-      shouldRandom: true,
-    },
-    {
-      name: 'SomeNano',
-      value: 'somenano',
-      api: 'https://node.somenano.com/proxy',
-      ws: 'wss://node.somenano.com/websocket',
-      auth: null,
-      shouldRandom: true,
-    },
-    {
-      name: 'SpyNano (New Node - Use with caution)',
-      value: 'spynano',
-      api: 'https://node.spynano.org/proxy',
-      ws: 'wss://node.spynano.org/websocket',
-      auth: null,
-      shouldRandom: false,
     },
     {
       name: 'Custom',
@@ -125,6 +117,7 @@ export class AppSettingsService {
     acc.push( server.api.replace(/https?:\/\//g, '') );
     return acc;
   }, [
+    'proxy.nanos.cc/proxy',
     'node.somenano.com'
   ]);
 
